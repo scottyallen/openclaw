@@ -378,7 +378,6 @@ describe("subagent announce formatting", () => {
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
       ...defaultOutcomeAnnounce,
-      expectsCompletionMessage: true,
     });
 
     expect(didAnnounce).toBe(true);
@@ -418,7 +417,6 @@ describe("subagent announce formatting", () => {
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
       ...defaultOutcomeAnnounce,
-      expectsCompletionMessage: true,
     });
 
     expect(didAnnounce).toBe(true);
@@ -481,8 +479,6 @@ describe("subagent announce formatting", () => {
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
       ...defaultOutcomeAnnounce,
-      expectsCompletionMessage: true,
-      spawnMode: "session",
     });
 
     expect(didAnnounce).toBe(true);
@@ -565,8 +561,6 @@ describe("subagent announce formatting", () => {
           accountId: "acct-1",
         },
         ...defaultOutcomeAnnounce,
-        expectsCompletionMessage: true,
-        spawnMode: "session",
       }),
       runSubagentAnnounceFlow({
         childSessionKey: "agent:main:subagent:child-b",
@@ -579,8 +573,6 @@ describe("subagent announce formatting", () => {
           accountId: "acct-1",
         },
         ...defaultOutcomeAnnounce,
-        expectsCompletionMessage: true,
-        spawnMode: "session",
       }),
     ]);
 
@@ -606,7 +598,6 @@ describe("subagent announce formatting", () => {
         outcome: { status: "error", error: "boom" } as const,
         expectedStatusLabel: "failed: boom",
         excludedStatusLabel: "completed successfully",
-        spawnMode: "session" as const,
       },
       {
         childSessionId: "child-session-direct-timeout",
@@ -616,7 +607,6 @@ describe("subagent announce formatting", () => {
         outcome: { status: "timeout" } as const,
         expectedStatusLabel: "timed out",
         excludedStatusLabel: "completed successfully",
-        spawnMode: undefined,
       },
     ] as const;
 
@@ -641,8 +631,6 @@ describe("subagent announce formatting", () => {
         requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
         ...defaultOutcomeAnnounce,
         outcome: testCase.outcome,
-        expectsCompletionMessage: true,
-        ...(testCase.spawnMode ? { spawnMode: testCase.spawnMode } : {}),
       });
 
       expect(didAnnounce).toBe(true);
@@ -709,7 +697,6 @@ describe("subagent announce formatting", () => {
         requesterDisplayKey: "main",
         requesterOrigin: testCase.requesterOrigin,
         ...defaultOutcomeAnnounce,
-        expectsCompletionMessage: true,
       });
 
       expect(didAnnounce).toBe(true);
@@ -772,8 +759,6 @@ describe("subagent announce formatting", () => {
         requesterDisplayKey: "main",
         requesterOrigin: testCase.requesterOrigin,
         ...defaultOutcomeAnnounce,
-        expectsCompletionMessage: true,
-        spawnMode: "session",
       });
 
       expect(didAnnounce).toBe(true);
@@ -783,8 +768,6 @@ describe("subagent announce formatting", () => {
           requesterSessionKey: "agent:main:main",
           requesterOrigin: testCase.requesterOrigin,
           childRunId: testCase.childRunId,
-          spawnMode: "session",
-          expectsCompletionMessage: true,
         },
         {
           runId: testCase.childRunId,
@@ -835,8 +818,6 @@ describe("subagent announce formatting", () => {
         accountId: "acct-1",
       },
       ...defaultOutcomeAnnounce,
-      expectsCompletionMessage: true,
-      spawnMode: "session",
     });
 
     expect(didAnnounce).toBe(true);
@@ -968,7 +949,6 @@ describe("subagent announce formatting", () => {
       childRunId: "run-completion-direct-fallback",
       requesterSessionKey: "main",
       requesterDisplayKey: "main",
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1007,7 +987,6 @@ describe("subagent announce formatting", () => {
       childRunId: "run-completion-direct-fail",
       requesterSessionKey: "main",
       requesterDisplayKey: "main",
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1025,7 +1004,6 @@ describe("subagent announce formatting", () => {
       requesterSessionKey: "agent:main:main",
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1059,7 +1037,6 @@ describe("subagent announce formatting", () => {
       requesterSessionKey: "agent:main:main",
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1089,7 +1066,6 @@ describe("subagent announce formatting", () => {
       requesterSessionKey: "agent:main:main",
       requesterDisplayKey: "main",
       requesterOrigin: { channel: "discord", to: "channel:12345", accountId: "acct-1" },
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1290,7 +1266,6 @@ describe("subagent announce formatting", () => {
       requesterSessionKey: "agent:main:subagent:orchestrator",
       requesterOrigin: { channel: "whatsapp", accountId: "acct-123", to: "+1555" },
       requesterDisplayKey: "agent:main:subagent:orchestrator",
-      expectsCompletionMessage: true,
       ...defaultOutcomeAnnounce,
     });
 
@@ -1368,11 +1343,9 @@ describe("subagent announce formatting", () => {
     const cases = [
       {
         childRunId: "run-parent",
-        expectsCompletionMessage: false,
       },
       {
         childRunId: "run-parent-completion",
-        expectsCompletionMessage: true,
       },
     ] as const;
 
@@ -1388,7 +1361,6 @@ describe("subagent announce formatting", () => {
         childRunId: testCase.childRunId,
         requesterSessionKey: "agent:main:main",
         requesterDisplayKey: "main",
-        ...(testCase.expectsCompletionMessage ? { expectsCompletionMessage: true } : {}),
         ...defaultOutcomeAnnounce,
       });
 
@@ -1474,12 +1446,10 @@ describe("subagent announce formatting", () => {
       {
         childRunId: "run-child-active",
         task: "context-stress-test",
-        expectsCompletionMessage: false,
       },
       {
         childRunId: "run-child-active-completion",
         task: "completion-context-stress-test",
-        expectsCompletionMessage: true,
       },
     ] as const;
 
@@ -1501,7 +1471,6 @@ describe("subagent announce formatting", () => {
         requesterDisplayKey: "main",
         ...defaultOutcomeAnnounce,
         task: testCase.task,
-        ...(testCase.expectsCompletionMessage ? { expectsCompletionMessage: true } : {}),
       });
 
       expect(didAnnounce).toBe(false);
