@@ -18,6 +18,14 @@ function parseConversationInfoPayload(text: string): Record<string, unknown> {
   return JSON.parse(match[1]) as Record<string, unknown>;
 }
 
+function parseSenderInfoPayload(text: string): Record<string, unknown> {
+  const match = text.match(/Sender \(untrusted metadata\):\n```json\n([\s\S]*?)\n```/);
+  if (!match?.[1]) {
+    throw new Error("missing sender info json block");
+  }
+  return JSON.parse(match[1]) as Record<string, unknown>;
+}
+
 describe("buildInboundMetaSystemPrompt", () => {
   it("includes session-stable routing fields", () => {
     const prompt = buildInboundMetaSystemPrompt({
@@ -101,6 +109,29 @@ describe("buildInboundUserContextPrefix", () => {
 
     const conversationInfo = parseConversationInfoPayload(text);
     expect(conversationInfo["sender"]).toBe("+15551234567");
+  });
+
+  it("prefers SenderName in conversation info sender identity", () => {
+    const text = buildInboundUserContextPrefix({
+      ChatType: "direct",
+      SenderName: " Tyler ",
+      SenderId: " +15551234567 ",
+    } as TemplateContext);
+
+    const conversationInfo = parseConversationInfoPayload(text);
+    expect(conversationInfo["sender"]).toBe("Tyler");
+  });
+
+  it("includes sender metadata block for direct chats", () => {
+    const text = buildInboundUserContextPrefix({
+      ChatType: "direct",
+      SenderName: "Tyler",
+      SenderId: "+15551234567",
+    } as TemplateContext);
+
+    const senderInfo = parseSenderInfoPayload(text);
+    expect(senderInfo["label"]).toBe("Tyler (+15551234567)");
+    expect(senderInfo["id"]).toBe("+15551234567");
   });
 
   it("includes message_id in conversation info", () => {
