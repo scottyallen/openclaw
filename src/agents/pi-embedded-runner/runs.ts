@@ -41,13 +41,14 @@ const EMBEDDED_RUN_WAITERS = embeddedRunState.waiters;
 export function queueEmbeddedPiMessage(sessionId: string, text: string): boolean {
   const handle = ACTIVE_EMBEDDED_RUNS.get(sessionId);
   if (!handle) {
-    diag.debug(`queue message failed: sessionId=${sessionId} reason=no_active_run`);
+    diag.info(`queue message failed: sessionId=${sessionId} reason=no_active_run`);
     return false;
   }
   if (handle.isCompacting()) {
-    diag.debug(`queue message failed: sessionId=${sessionId} reason=compacting`);
+    diag.info(`queue message failed: sessionId=${sessionId} reason=compacting`);
     return false;
   }
+  diag.info(`queue message succeeded: sessionId=${sessionId}`);
   logMessageQueued({ sessionId, source: "pi-embedded-runner" });
   void handle.queueMessage(text);
   return true;

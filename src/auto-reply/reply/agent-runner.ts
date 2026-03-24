@@ -17,6 +17,7 @@ import { emitAgentEvent } from "../../infra/agent-events.js";
 import { emitDiagnosticEvent, isDiagnosticsEnabled } from "../../infra/diagnostic-events.js";
 import { generateSecureUuid } from "../../infra/secure-random.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
+import { diagnosticLogger as diag } from "../../logging/diagnostic.js";
 import { resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
 import { estimateUsageCost, resolveModelCostConfig } from "../../utils/usage-format.js";
@@ -193,8 +194,14 @@ export async function runReplyAgent(params: {
     }
   };
 
+  diag.info(
+    `[steer] decision: shouldSteer=${shouldSteer} isActive=${isActive} sessionId=${followupRun.run.sessionId}`,
+  );
   if (shouldSteer && isActive) {
     const steered = queueEmbeddedPiMessage(followupRun.run.sessionId, followupRun.prompt);
+    diag.info(
+      `[steer] queueEmbeddedPiMessage result=${steered} sessionId=${followupRun.run.sessionId}`,
+    );
     if (steered && !shouldFollowup) {
       await touchActiveSessionEntry();
       typing.cleanup();
@@ -215,6 +222,7 @@ export async function runReplyAgent(params: {
   }
 
   if (activeRunQueueAction === "enqueue-followup") {
+    diag.info(`[steer] fell through to enqueue-followup`);
     enqueueFollowupRun(queueKey, followupRun, resolvedQueue);
     await touchActiveSessionEntry();
     typing.cleanup();
