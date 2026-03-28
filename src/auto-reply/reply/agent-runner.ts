@@ -3,7 +3,7 @@ import { lookupContextTokens } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
 import { resolveModelAuthMode } from "../../agents/model-auth.js";
 import { isCliProvider } from "../../agents/model-selection.js";
-import { queueEmbeddedPiMessage } from "../../agents/pi-embedded.js";
+import { isEmbeddedPiRunStreaming, queueEmbeddedPiMessage } from "../../agents/pi-embedded.js";
 import { hasNonzeroUsage } from "../../agents/usage.js";
 import {
   resolveSessionFilePath,
@@ -17,6 +17,7 @@ import { emitAgentEvent } from "../../infra/agent-events.js";
 import { emitDiagnosticEvent, isDiagnosticsEnabled } from "../../infra/diagnostic-events.js";
 import { generateSecureUuid } from "../../infra/secure-random.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
 import { estimateUsageCost, resolveModelCostConfig } from "../../utils/usage-format.js";
@@ -56,6 +57,8 @@ import { createReplyToModeFilterForChannel, resolveReplyToMode } from "./reply-t
 import { incrementRunCompactionCount, persistRunSessionUsage } from "./session-run-accounting.js";
 import { createTypingSignaler } from "./typing-mode.js";
 import type { TypingController } from "./typing.js";
+
+const steerLog = createSubsystemLogger("steer");
 
 const BLOCK_REPLY_SEND_TIMEOUT_MS = 15_000;
 
@@ -194,7 +197,13 @@ export async function runReplyAgent(params: {
   };
 
   if (shouldSteer && isActive) {
-    const steered = queueEmbeddedPiMessage(followupRun.run.sessionId, followupRun.prompt);
+    const steerSessionId = followupRun.run.sessionId;
+    const streaming = isEmbeddedPiRunStreaming(steerSessionId);
+    steerLog.debug(
+      `steer inject attempt: sessionId=${steerSessionId} isActive=${isActive} isStreaming=${streaming} shouldFollowup=${shouldFollowup} arrivedAt=${Date.now()}`,
+    );
+    const steered = queueEmbeddedPiMessage(steerSessionId, followupRun.prompt);
+    steerLog.debug(`steer inject result: sessionId=${steerSessionId} steered=${steered}`);
     if (steered && !shouldFollowup) {
       await touchActiveSessionEntry();
       typing.cleanup();

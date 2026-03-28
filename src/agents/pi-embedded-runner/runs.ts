@@ -41,13 +41,19 @@ const EMBEDDED_RUN_WAITERS = embeddedRunState.waiters;
 export function queueEmbeddedPiMessage(sessionId: string, text: string): boolean {
   const handle = ACTIVE_EMBEDDED_RUNS.get(sessionId);
   if (!handle) {
-    diag.debug(`queue message failed: sessionId=${sessionId} reason=no_active_run`);
+    diag.debug(
+      `queue message failed: sessionId=${sessionId} reason=no_active_run ts=${Date.now()}`,
+    );
     return false;
   }
   if (handle.isCompacting()) {
-    diag.debug(`queue message failed: sessionId=${sessionId} reason=compacting`);
+    diag.debug(`queue message failed: sessionId=${sessionId} reason=compacting ts=${Date.now()}`);
     return false;
   }
+  const streaming = handle.isStreaming();
+  diag.debug(
+    `queue message accepted: sessionId=${sessionId} isStreaming=${streaming} ts=${Date.now()}`,
+  );
   logMessageQueued({ sessionId, source: "pi-embedded-runner" });
   void handle.queueMessage(text);
   return true;
@@ -236,7 +242,9 @@ export function setActiveEmbeddedRun(
     reason: wasActive ? "run_replaced" : "run_started",
   });
   if (!sessionId.startsWith("probe-")) {
-    diag.debug(`run registered: sessionId=${sessionId} totalActive=${ACTIVE_EMBEDDED_RUNS.size}`);
+    diag.debug(
+      `run registered: sessionId=${sessionId} totalActive=${ACTIVE_EMBEDDED_RUNS.size} ts=${Date.now()}`,
+    );
   }
 }
 
@@ -260,7 +268,9 @@ export function clearActiveEmbeddedRun(
     ACTIVE_EMBEDDED_RUN_SNAPSHOTS.delete(sessionId);
     logSessionStateChange({ sessionId, sessionKey, state: "idle", reason: "run_completed" });
     if (!sessionId.startsWith("probe-")) {
-      diag.debug(`run cleared: sessionId=${sessionId} totalActive=${ACTIVE_EMBEDDED_RUNS.size}`);
+      diag.debug(
+        `run cleared: sessionId=${sessionId} totalActive=${ACTIVE_EMBEDDED_RUNS.size} ts=${Date.now()}`,
+      );
     }
     notifyEmbeddedRunEnded(sessionId);
   } else {

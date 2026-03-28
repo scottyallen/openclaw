@@ -12,6 +12,7 @@ import { callGateway } from "../gateway/call.js";
 import { createBoundDeliveryRouter } from "../infra/outbound/bound-delivery-router.js";
 import { resolveConversationIdFromTargets } from "../infra/outbound/conversation-id.js";
 import type { ConversationRef } from "../infra/outbound/session-binding-service.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import { normalizeAccountId, normalizeMainKey } from "../routing/session-key.js";
 import { defaultRuntime } from "../runtime.js";
@@ -37,6 +38,7 @@ import {
 import { formatAgentInternalEventsForPrompt, type AgentInternalEvent } from "./internal-events.js";
 import {
   isEmbeddedPiRunActive,
+  isEmbeddedPiRunStreaming,
   queueEmbeddedPiMessage,
   waitForEmbeddedPiRunEnd,
 } from "./pi-embedded.js";
@@ -49,6 +51,8 @@ import { getSubagentDepthFromSessionStore } from "./subagent-depth.js";
 import type { SpawnSubagentMode } from "./subagent-spawn.js";
 import { sanitizeTextContent, extractAssistantText } from "./tools/sessions-helpers.js";
 import { isAnnounceSkip } from "./tools/sessions-send-helpers.js";
+
+const steerLog = createSubsystemLogger("steer");
 
 const FAST_TEST_MODE = process.env.OPENCLAW_TEST_FAST === "1";
 const FAST_TEST_RETRY_INTERVAL_MS = 8;
@@ -794,7 +798,12 @@ async function maybeQueueSubagentAnnounce(params: {
 
   const shouldSteer = queueSettings.mode === "steer" || queueSettings.mode === "steer-backlog";
   if (shouldSteer) {
+    const streaming = isEmbeddedPiRunStreaming(sessionId);
+    steerLog.debug(
+      `subagent steer inject attempt: sessionId=${sessionId} isActive=${isActive} isStreaming=${streaming} queueMode=${queueSettings.mode} arrivedAt=${Date.now()}`,
+    );
     const steered = queueEmbeddedPiMessage(sessionId, params.steerMessage);
+    steerLog.debug(`subagent steer inject result: sessionId=${sessionId} steered=${steered}`);
     if (steered) {
       return "steered";
     }
