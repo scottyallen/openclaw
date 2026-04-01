@@ -663,6 +663,7 @@ function activatePluginRegistry(registry: PluginRegistry, cacheKey: string): voi
 }
 
 export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegistry {
+  const loadStartTime = Date.now();
   // Snapshot (non-activating) loads must disable the cache to avoid storing a registry
   // whose commands were never globally registered.
   if (options.activate === false && options.cache !== false) {
@@ -675,6 +676,9 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
   // This keeps unit/gateway suites fast and avoids loading heavyweight plugin deps by accident.
   const cfg = applyTestPluginDefaults(options.config ?? {}, env);
   const logger = options.logger ?? defaultLogger();
+  logger.debug?.(
+    `loadOpenClawPlugins: starting mode=${options.mode ?? "full"} cache=${options.cache !== false}`,
+  );
   const validateOnly = options.mode === "validate";
   const normalized = normalizePluginsConfig(cfg.plugins);
   const onlyPluginIds = normalizeScopedPluginIds(options.onlyPluginIds);
@@ -705,6 +709,9 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
   if (cacheEnabled) {
     const cached = getCachedPluginRegistry(cacheKey);
     if (cached) {
+      logger.debug?.(
+        `loadOpenClawPlugins: cache hit, returning cached registry with ${cached.registry.plugins.length} plugins`,
+      );
       restoreMemoryPromptSection(cached.memoryPromptBuilder);
       if (shouldActivate) {
         activatePluginRegistry(cached.registry, cacheKey);
@@ -1275,6 +1282,12 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
   if (shouldActivate) {
     activatePluginRegistry(registry, cacheKey);
   }
+  const loadedCount = registry.plugins.filter((p) => p.status === "loaded").length;
+  const errorCount = registry.plugins.filter((p) => p.status === "error").length;
+  const loadDurationMs = Date.now() - loadStartTime;
+  logger.info(
+    `loadOpenClawPlugins: completed loaded=${loadedCount} errors=${errorCount} total=${registry.plugins.length} durationMs=${loadDurationMs}`,
+  );
   return registry;
 }
 

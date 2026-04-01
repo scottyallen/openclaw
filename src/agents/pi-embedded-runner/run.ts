@@ -286,6 +286,12 @@ export async function runEmbeddedPiAgent(
   return enqueueSession(() =>
     enqueueGlobal(async () => {
       const started = Date.now();
+      log.info(
+        `agent run: starting runId=${params.runId} sessionId=${params.sessionId} provider=${params.provider ?? DEFAULT_PROVIDER} model=${params.model ?? DEFAULT_MODEL}`,
+      );
+      log.debug(
+        `agent run: prompt.length=${params.prompt?.length ?? 0} images=${params.images?.length ?? 0} thinkLevel=${params.thinkLevel ?? "off"}`,
+      );
       const workspaceResolution = resolveRunWorkspaceDir({
         workspaceDir: params.workspaceDir,
         sessionKey: params.sessionKey,

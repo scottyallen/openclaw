@@ -1,3 +1,7 @@
+import { createSubsystemLogger } from "../logging/subsystem.js";
+
+const log = createSubsystemLogger("sessions/lifecycle");
+
 export type SessionLifecycleEvent = {
   sessionKey: string;
   reason: string;
@@ -18,6 +22,12 @@ export function onSessionLifecycleEvent(listener: SessionLifecycleListener): () 
 }
 
 export function emitSessionLifecycleEvent(event: SessionLifecycleEvent): void {
+  log.info(
+    `session: ${event.reason} sessionKey=${event.sessionKey}${event.parentSessionKey ? ` parent=${event.parentSessionKey}` : ""}${event.label ? ` label=${event.label}` : ""}`,
+  );
+  log.debug(
+    `session lifecycle: reason=${event.reason} sessionKey=${event.sessionKey} displayName=${event.displayName ?? "(none)"} listeners=${SESSION_LIFECYCLE_LISTENERS.size}`,
+  );
   for (const listener of SESSION_LIFECYCLE_LISTENERS) {
     try {
       listener(event);

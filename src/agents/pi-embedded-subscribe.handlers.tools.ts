@@ -4,9 +4,12 @@ import {
   buildExecApprovalPendingReplyPayload,
   buildExecApprovalUnavailableReplyPayload,
 } from "../infra/exec-approval-reply.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import type { PluginHookAfterToolCallEvent } from "../plugins/types.js";
 import { normalizeTextForComparison } from "./pi-embedded-helpers.js";
+
+const log = createSubsystemLogger("agent/tools");
 import { isMessagingTool, isMessagingToolSendAction } from "./pi-embedded-messaging.js";
 import type {
   ToolCallSummary,
@@ -468,7 +471,18 @@ export async function handleToolExecutionEnd(
   const sanitizedResult = sanitizeToolResult(result);
   const toolStartKey = buildToolStartKey(runId, toolCallId);
   const startData = toolStartData.get(toolStartKey);
+  const durationMs = startData ? Date.now() - startData.startTime : 0;
   toolStartData.delete(toolStartKey);
+
+  // INFO-level logging for tool completion with timing
+  if (isToolError) {
+    log.info(`tool: ${toolName} error toolCallId=${toolCallId} durationMs=${durationMs}`);
+  } else if (durationMs > 1000) {
+    // Log slow tool calls at INFO level
+    log.info(`tool: ${toolName} completed toolCallId=${toolCallId} durationMs=${durationMs}`);
+  } else {
+    log.debug(`tool: ${toolName} completed toolCallId=${toolCallId} durationMs=${durationMs}`);
+  }
   const callSummary = ctx.state.toolMetaById.get(toolCallId);
   const meta = callSummary?.meta;
   ctx.state.toolMetas.push({ toolName, meta });

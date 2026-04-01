@@ -137,3 +137,14 @@ docs/superpowers
 
 # Deprecated changelog fragment workflow
 changelog/fragments/
+
+# Gas Town (added by gt)
+.runtime/
+.logs/
+state.json
+
+# Gas Town (added by gt)
+CLAUDE.md
+
+# Gas Town (added by gt)
+CLAUDE.local.md

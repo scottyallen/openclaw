@@ -1,6 +1,7 @@
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { logVerbose } from "../../globals.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { isAcpSessionKey } from "../../sessions/session-key-utils.js";
 import {
@@ -71,6 +72,8 @@ import {
   validateRuntimeOptionPatch,
 } from "./runtime-options.js";
 import { SessionActorQueue } from "./session-actor-queue.js";
+
+const log = createSubsystemLogger("acp/manager");
 
 const ACP_TURN_TIMEOUT_GRACE_MS = 1_000;
 const ACP_TURN_TIMEOUT_CLEANUP_GRACE_MS = 2_000;
@@ -228,10 +231,16 @@ export class AcpSessionManager {
       throw new AcpRuntimeError("ACP_SESSION_INIT_FAILED", "ACP session key is required.");
     }
     const agent = normalizeAgentId(input.agent);
+    log.info(`initializeSession: sessionKey=${sessionKey} agent=${agent} mode=${input.mode}`);
+    log.debug(
+      `initializeSession: backendId=${input.backendId ?? "(default)"} cwd=${input.cwd ?? "(none)"}`,
+    );
+    const initStartTime = Date.now();
     await this.evictIdleRuntimeHandles({ cfg: input.cfg });
     return await this.withSessionActor(sessionKey, async () => {
       const backend = this.deps.requireRuntimeBackend(input.backendId || input.cfg.acp?.backend);
       const runtime = backend.runtime;
+      log.debug(`initializeSession: resolved backend=${backend.id}`);
       const initialRuntimeOptions = validateRuntimeOptionPatch({ cwd: input.cwd });
       const requestedCwd = initialRuntimeOptions.cwd;
       this.enforceConcurrentSessionLimit({
@@ -318,6 +327,10 @@ export class AcpSessionManager {
         mode: input.mode,
         cwd: effectiveCwd,
       });
+      const initDurationMs = Date.now() - initStartTime;
+      log.info(
+        `initializeSession: completed sessionKey=${sessionKey} backend=${handle.backend || backend.id} durationMs=${initDurationMs}`,
+      );
       return {
         runtime,
         handle,
@@ -608,6 +621,13 @@ export class AcpSessionManager {
     if (!sessionKey) {
       throw new AcpRuntimeError("ACP_SESSION_INIT_FAILED", "ACP session key is required.");
     }
+    const requestId = input.requestId ?? "(none)";
+    log.info(
+      `runTurn: sessionKey=${sessionKey} requestId=${requestId} mode=${input.mode ?? "(default)"}`,
+    );
+    log.debug(
+      `runTurn: text.length=${input.text?.length ?? 0} attachments=${input.attachments?.length ?? 0}`,
+    );
     await this.evictIdleRuntimeHandles({ cfg: input.cfg });
     await this.withSessionActor(
       sessionKey,
@@ -734,6 +754,10 @@ export class AcpSessionManager {
             this.recordTurnCompletion({
               startedAt: turnStartedAt,
             });
+            const turnDurationMs = Date.now() - turnStartedAt;
+            log.info(
+              `runTurn: completed sessionKey=${sessionKey} requestId=${requestId} durationMs=${turnDurationMs}`,
+            );
             await this.setSessionState({
               cfg: input.cfg,
               sessionKey,
@@ -762,6 +786,10 @@ export class AcpSessionManager {
               startedAt: turnStartedAt,
               errorCode: acpError.code,
             });
+            const turnDurationMs = Date.now() - turnStartedAt;
+            log.warn(
+              `runTurn: failed sessionKey=${sessionKey} requestId=${requestId} durationMs=${turnDurationMs} error=${acpError.code}: ${acpError.message}`,
+            );
             await this.setSessionState({
               cfg: input.cfg,
               sessionKey,
@@ -1089,6 +1117,9 @@ export class AcpSessionManager {
     if (!sessionKey) {
       throw new AcpRuntimeError("ACP_SESSION_INIT_FAILED", "ACP session key is required.");
     }
+    log.info(
+      `closeSession: sessionKey=${sessionKey} reason=${input.reason ?? "(none)"} clearMeta=${input.clearMeta ?? false}`,
+    );
     await this.evictIdleRuntimeHandles({ cfg: input.cfg });
     return await this.withSessionActor(sessionKey, async () => {
       const resolution = this.resolveSession({
