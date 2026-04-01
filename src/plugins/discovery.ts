@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { openBoundaryFileSync } from "../infra/boundary-file-read.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { resolveUserPath } from "../utils.js";
 import { detectBundleManifestFormat, loadBundleManifest } from "./bundle-manifest.js";
 import {
@@ -13,6 +14,8 @@ import {
 import { formatPosixMode, isPathInside, safeRealpathSync, safeStatSync } from "./path-safety.js";
 import { resolvePluginCacheInputs, resolvePluginSourceRoots } from "./roots.js";
 import type { PluginBundleFormat, PluginDiagnostic, PluginFormat, PluginOrigin } from "./types.js";
+
+const log = createSubsystemLogger("plugins/discovery");
 
 const EXTENSION_EXTS = new Set([".ts", ".js", ".mts", ".cts", ".mjs", ".cjs"]);
 
@@ -772,6 +775,7 @@ export function discoverOpenClawPlugins(params: {
   if (cacheEnabled) {
     const cached = discoveryCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
+      log.debug("plugin discovery cache hit", { candidates: cached.result.candidates.length });
       return cached.result;
     }
   }
@@ -838,6 +842,29 @@ export function discoverOpenClawPlugins(params: {
   });
 
   const result = { candidates, diagnostics };
+  log.info("plugin discovery completed", {
+    candidates: candidates.length,
+    diagnostics: diagnostics.length,
+    workspaceDir: workspaceDir ?? null,
+  });
+  if (diagnostics.length > 0) {
+    for (const diag of diagnostics) {
+      if (diag.level === "error") {
+        log.warn("plugin discovery diagnostic", {
+          level: diag.level,
+          message: diag.message,
+          source: diag.source,
+        });
+      } else {
+        log.debug("plugin discovery diagnostic", {
+          level: diag.level,
+          message: diag.message,
+          source: diag.source,
+        });
+      }
+    }
+  }
+  log.debug("discovered plugin candidates", { plugins: candidates.map((c) => c.idHint) });
   if (cacheEnabled) {
     const ttl = resolveDiscoveryCacheMs(env);
     if (ttl > 0) {

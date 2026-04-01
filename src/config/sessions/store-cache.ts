@@ -1,4 +1,7 @@
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import type { SessionEntry } from "./types.js";
+
+const log = createSubsystemLogger("sessions/cache");
 
 type SessionStoreCacheEntry = {
   store: Record<string, SessionEntry>;
@@ -46,17 +49,25 @@ export function readSessionStoreCache(params: {
 }): Record<string, SessionEntry> | null {
   const cached = SESSION_STORE_CACHE.get(params.storePath);
   if (!cached) {
+    log.debug("session store cache miss", { storePath: params.storePath });
     return null;
   }
   const now = Date.now();
   if (now - cached.loadedAt > params.ttlMs) {
+    log.debug("session store cache expired", {
+      storePath: params.storePath,
+      ageMs: now - cached.loadedAt,
+      ttlMs: params.ttlMs,
+    });
     invalidateSessionStoreCache(params.storePath);
     return null;
   }
   if (params.mtimeMs !== cached.mtimeMs || params.sizeBytes !== cached.sizeBytes) {
+    log.debug("session store cache stale (file changed)", { storePath: params.storePath });
     invalidateSessionStoreCache(params.storePath);
     return null;
   }
+  log.debug("session store cache hit", { storePath: params.storePath });
   return structuredClone(cached.store);
 }
 

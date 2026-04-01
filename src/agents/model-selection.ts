@@ -360,11 +360,18 @@ export function resolveDefaultModelForAgent(params: {
           },
         }
       : params.cfg;
-  return resolveConfiguredModelRef({
+  const ref = resolveConfiguredModelRef({
     cfg,
     defaultProvider: DEFAULT_PROVIDER,
     defaultModel: DEFAULT_MODEL,
   });
+  log.info("resolved default model for agent", {
+    agentId: params.agentId ?? "default",
+    provider: ref.provider,
+    model: ref.model,
+    hasOverride: Boolean(agentModelOverride),
+  });
+  return ref;
 }
 
 function resolveAllowedFallbacks(params: { cfg: OpenClawConfig; agentId?: string }): string[] {
@@ -398,15 +405,20 @@ export function resolveSubagentSpawnModelSelection(params: {
     cfg: params.cfg,
     agentId: params.agentId,
   });
-  return (
+  const result =
     normalizeModelSelection(params.modelOverride) ??
     resolveSubagentConfiguredModelSelection({
       cfg: params.cfg,
       agentId: params.agentId,
     }) ??
     normalizeModelSelection(resolveAgentModelPrimaryValue(params.cfg.agents?.defaults?.model)) ??
-    `${runtimeDefault.provider}/${runtimeDefault.model}`
-  );
+    `${runtimeDefault.provider}/${runtimeDefault.model}`;
+  log.debug("subagent model selection", {
+    agentId: params.agentId,
+    model: result,
+    hasOverride: params.modelOverride != null,
+  });
+  return result;
 }
 
 export function buildAllowedModelSet(params: {
@@ -611,9 +623,15 @@ export function resolveAllowedModelRef(params: {
     defaultModel: params.defaultModel,
   });
   if (!status.allowed) {
+    log.warn("model not allowed", { key: status.key, raw: trimmed });
     return { error: `model not allowed: ${status.key}` };
   }
 
+  log.debug("model ref resolved", {
+    key: status.key,
+    provider: resolved.ref.provider,
+    model: resolved.ref.model,
+  });
   return { ref: resolved.ref, key: status.key };
 }
 

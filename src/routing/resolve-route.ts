@@ -4,6 +4,7 @@ import { normalizeChatType } from "../channels/chat-type.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { shouldLogVerbose } from "../globals.js";
 import { logDebug } from "../logger.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { listBindings } from "./bindings.js";
 import {
   buildAgentMainSessionKey,
@@ -14,6 +15,8 @@ import {
   normalizeAgentId,
   sanitizeAgentId,
 } from "./session-key.js";
+
+const log = createSubsystemLogger("routing");
 
 /** @deprecated Use ChatType from channels/chat-type.js */
 export type RoutePeerKind = ChatType;
@@ -651,6 +654,7 @@ export function resolveAgentRoute(input: ResolveAgentRouteInput): ResolvedAgentR
   if (routeCache && routeCacheKey) {
     const cachedRoute = routeCache.get(routeCacheKey);
     if (cachedRoute) {
+      log.debug("route cache hit", { channel, accountId, matchedBy: cachedRoute.matchedBy });
       return { ...cachedRoute };
     }
   }
@@ -684,6 +688,7 @@ export function resolveAgentRoute(input: ResolveAgentRouteInput): ResolvedAgentR
     if (routeCache && routeCacheKey) {
       routeCache.set(routeCacheKey, route);
       if (routeCache.size > MAX_RESOLVED_ROUTE_CACHE_KEYS) {
+        log.debug("route cache overflow, clearing", { size: routeCache.size });
         routeCache.clear();
         routeCache.set(routeCacheKey, route);
       }
@@ -796,9 +801,16 @@ export function resolveAgentRoute(input: ResolveAgentRouteInput): ResolvedAgentR
       if (shouldLogDebug) {
         logDebug(`[routing] match: matchedBy=${tier.matchedBy} agentId=${matched.binding.agentId}`);
       }
+      log.info("route resolved via binding", {
+        channel,
+        accountId,
+        matchedBy: tier.matchedBy,
+        agentId: matched.binding.agentId,
+      });
       return choose(matched.binding.agentId, tier.matchedBy);
     }
   }
 
+  log.info("route resolved via default", { channel, accountId });
   return choose(resolveDefaultAgentId(input.cfg), "default");
 }

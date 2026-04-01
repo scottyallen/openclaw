@@ -1,5 +1,8 @@
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { createEmptyPluginRegistry } from "./registry-empty.js";
 import type { PluginRegistry } from "./registry.js";
+
+const log = createSubsystemLogger("plugins/runtime");
 
 const REGISTRY_STATE = Symbol.for("openclaw.pluginRegistryState");
 
@@ -34,6 +37,7 @@ export function setActivePluginRegistry(registry: PluginRegistry, cacheKey?: str
   }
   state.key = cacheKey ?? null;
   state.version += 1;
+  log.info("plugin registry activated", { version: state.version, cacheKey: cacheKey ?? null });
 }
 
 export function getActivePluginRegistry(): PluginRegistry | null {

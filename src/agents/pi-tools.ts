@@ -4,6 +4,7 @@ import type { ModelCompatConfig } from "../config/types.models.js";
 import type { ToolLoopDetectionConfig } from "../config/types.tools.js";
 import { resolveMergedSafeBinProfileFixtures } from "../infra/exec-safe-bin-runtime-policy.js";
 import { logWarn } from "../logger.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
 import { isSubagentSessionKey } from "../routing/session-key.js";
 import { resolveGatewayMessageChannel } from "../utils/message-channel.js";
@@ -58,6 +59,8 @@ import {
   resolveToolProfilePolicy,
 } from "./tool-policy.js";
 import { resolveWorkspaceRoot } from "./workspace-dir.js";
+
+const log = createSubsystemLogger("agents/tools");
 
 function isOpenAIProvider(provider?: string) {
   const normalized = provider?.trim().toLowerCase();
@@ -545,6 +548,7 @@ export function createOpenClawCodingTools(options?: {
       allowGatewaySubagentBinding: options?.allowGatewaySubagentBinding,
     }),
   ];
+  log.debug("base tool set assembled", { count: tools.length, isMemoryFlushRun });
   const toolsForMemoryFlush =
     isMemoryFlushRun && memoryFlushWritePath
       ? tools.flatMap((tool) => {
@@ -620,6 +624,15 @@ export function createOpenClawCodingTools(options?: {
   const withAbort = options?.abortSignal
     ? withHooks.map((tool) => wrapToolWithAbortSignal(tool, options.abortSignal))
     : withHooks;
+
+  log.info("tool set created", {
+    agentId,
+    totalTools: withAbort.length,
+    sandboxed: !!sandbox,
+    modelProvider: options?.modelProvider,
+    senderIsOwner,
+  });
+  log.debug("tool names", { tools: withAbort.map((t) => t.name) });
 
   // NOTE: Keep canonical (lowercase) tool names here.
   // pi-ai's Anthropic OAuth transport remaps tool names to Claude Code-style names
