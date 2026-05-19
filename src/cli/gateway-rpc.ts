@@ -26,22 +26,56 @@ export async function callGatewayFromCli(
   extra?: { expectFinal?: boolean; progress?: boolean },
 ) {
   const showProgress = extra?.progress ?? opts.json !== true;
+  const debugCliGateway = process.env.OPENCLAW_DEBUG_CLI_GATEWAY === "1";
+  if (debugCliGateway) {
+    const tokenPreview =
+      typeof opts.token === "string" && opts.token.trim().length > 0
+        ? `${opts.token.trim().slice(0, 6)}…${opts.token.trim().slice(-4)}`
+        : undefined;
+    // eslint-disable-next-line no-console
+    console.error(
+      `[cli-gateway] call method=${method} url=${opts.url ?? "<default>"} timeout=${opts.timeout ?? "<default>"} expectFinal=${String(extra?.expectFinal ?? Boolean(opts.expectFinal))}${tokenPreview ? ` token=${tokenPreview}` : ""}`,
+    );
+  }
   return await withProgress(
     {
       label: `Gateway ${method}`,
       indeterminate: true,
       enabled: showProgress,
     },
-    async () =>
-      await callGateway({
-        url: opts.url,
-        token: opts.token,
-        method,
-        params,
-        expectFinal: extra?.expectFinal ?? Boolean(opts.expectFinal),
-        timeoutMs: Number(opts.timeout ?? 10_000),
-        clientName: GATEWAY_CLIENT_NAMES.CLI,
-        mode: GATEWAY_CLIENT_MODES.CLI,
-      }),
+    async () => {
+      try {
+        return await callGateway({
+          url: opts.url,
+          token: opts.token,
+          method,
+          params,
+          expectFinal: extra?.expectFinal ?? Boolean(opts.expectFinal),
+          timeoutMs: Number(opts.timeout ?? 10_000),
+          clientName: GATEWAY_CLIENT_NAMES.CLI,
+          mode: GATEWAY_CLIENT_MODES.CLI,
+        });
+      } catch (error) {
+        if (debugCliGateway) {
+          const message = error instanceof Error ? error.message : String(error);
+          const stack = error instanceof Error ? error.stack : undefined;
+          const details =
+            error && typeof error === "object" && "details" in error
+              ? (error as { details?: unknown }).details
+              : undefined;
+          // eslint-disable-next-line no-console
+          console.error(`[cli-gateway] failure method=${method} message=${message}`);
+          if (details !== undefined) {
+            // eslint-disable-next-line no-console
+            console.error(`[cli-gateway] details=${JSON.stringify(details)}`);
+          }
+          if (stack) {
+            // eslint-disable-next-line no-console
+            console.error(stack);
+          }
+        }
+        throw error;
+      }
+    },
   );
 }

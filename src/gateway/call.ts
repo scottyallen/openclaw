@@ -815,6 +815,23 @@ async function executeGatewayRequestWithScopes<T>(params: {
       }
     };
 
+    const deviceIdentity = shouldAttachDeviceIdentityForGatewayCall({ url, token, password })
+      ? loadOrCreateDeviceIdentity()
+      : undefined;
+    const debugGatewayConnect = process.env.OPENCLAW_DEBUG_GATEWAY_CONNECT === "1";
+    if (debugGatewayConnect) {
+      const authKind = token ? "token" : password ? "password" : "none";
+      const tokenPreview = token ? `${token.slice(0, 6)}…${token.slice(-4)}` : undefined;
+      const deviceIdPreview = deviceIdentity?.deviceId
+        ? `${deviceIdentity.deviceId.slice(0, 12)}…`
+        : undefined;
+      // Keep this high-signal and secret-safe.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[gateway-connect] url=${url} method=${opts.method} mode=${opts.mode ?? GATEWAY_CLIENT_MODES.CLI} auth=${authKind}${tokenPreview ? ` token=${tokenPreview}` : ""}${deviceIdPreview ? ` device=${deviceIdPreview}` : ""}`,
+      );
+    }
+
     const client = new GatewayClient({
       url,
       token,
@@ -828,11 +845,17 @@ async function executeGatewayRequestWithScopes<T>(params: {
       mode: opts.mode ?? GATEWAY_CLIENT_MODES.CLI,
       role: "operator",
       scopes,
-      deviceIdentity: shouldAttachDeviceIdentityForGatewayCall({ url, token, password })
-        ? loadOrCreateDeviceIdentity()
-        : undefined,
+      deviceIdentity,
       minProtocol: opts.minProtocol ?? PROTOCOL_VERSION,
       maxProtocol: opts.maxProtocol ?? PROTOCOL_VERSION,
+      onConnectError: (err) => {
+        if (settled || ignoreClose) {
+          return;
+        }
+        ignoreClose = true;
+        client.stop();
+        stop(err instanceof Error ? err : new Error(String(err)));
+      },
       onHelloOk: async (hello) => {
         try {
           ensureGatewaySupportsRequiredMethods({

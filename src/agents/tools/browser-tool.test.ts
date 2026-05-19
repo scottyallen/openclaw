@@ -108,7 +108,13 @@ const gatewayMocks = vi.hoisted(() => ({
     payload: { result: { ok: true, running: true } },
   })),
 }));
-vi.mock("./gateway.js", () => gatewayMocks);
+vi.mock("./gateway.js", async () => {
+  const actual = await vi.importActual<typeof import("./gateway.js")>("./gateway.js");
+  return {
+    ...actual,
+    ...gatewayMocks,
+  };
+});
 
 const configMocks = vi.hoisted(() => ({
   loadConfig: vi.fn(() => ({ browser: {} })),
@@ -360,7 +366,7 @@ describe("browser tool snapshot maxChars", () => {
 
     expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
       "node.invoke",
-      { timeoutMs: 25000 },
+      { gatewayUrl: undefined, gatewayToken: undefined, timeoutMs: 25000 },
       expect.objectContaining({
         nodeId: "node-1",
         command: "browser.proxy",
@@ -389,12 +395,44 @@ describe("browser tool snapshot maxChars", () => {
 
     expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
       "node.invoke",
-      { timeoutMs: 25000 },
+      { gatewayUrl: undefined, gatewayToken: undefined, timeoutMs: 25000 },
       expect.objectContaining({
         params: expect.objectContaining({
           timeoutMs: 20000,
         }),
       }),
+    );
+  });
+
+  it("forwards explicit gateway overrides through node proxy calls", async () => {
+    mockSingleBrowserProxyNode();
+    const tool = createBrowserTool();
+    await tool.execute?.("call-1", {
+      action: "status",
+      target: "node",
+      gatewayUrl: "ws://127.0.0.1:18789",
+      gatewayToken: "token-123",
+    });
+
+    expect(gatewayMocks.callGatewayTool).toHaveBeenCalledWith(
+      "node.invoke",
+      { gatewayUrl: "ws://127.0.0.1:18789", gatewayToken: "token-123", timeoutMs: 25000 },
+      expect.objectContaining({
+        nodeId: "node-1",
+        command: "browser.proxy",
+      }),
+    );
+  });
+
+  it("surfaces nested node error details from browser proxy failures", async () => {
+    mockSingleBrowserProxyNode();
+    gatewayMocks.callGatewayTool.mockRejectedValueOnce(
+      new Error("UNAVAILABLE: node not connected"),
+    );
+
+    const tool = createBrowserTool();
+    await expect(tool.execute?.("call-1", { action: "status", target: "node" })).rejects.toThrow(
+      /node not connected/i,
     );
   });
 

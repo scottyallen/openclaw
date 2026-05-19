@@ -78,6 +78,18 @@ describe("gateway tool defaults", () => {
     expect(opts.token).toBe("config-token");
   });
 
+  it("uses config-first local token precedence for allowlisted local overrides inside gateway runtime", () => {
+    process.env.OPENCLAW_GATEWAY_TOKEN = "env-token";
+    process.env.OPENCLAW_SERVICE_KIND = "gateway";
+    configState.value = {
+      gateway: {
+        auth: { token: "config-token" },
+      },
+    };
+    const opts = resolveGatewayOptions({ gatewayUrl: "ws://127.0.0.1:18789" });
+    expect(opts.token).toBe("config-token");
+  });
+
   it("uses gateway.remote.token for allowlisted remote overrides", () => {
     configState.value = {
       gateway: {

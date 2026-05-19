@@ -22,12 +22,18 @@ import { browserHandlers } from "./browser.js";
 type RespondCall = [boolean, unknown?, { code: number; message: string }?];
 
 function createContext() {
-  const invoke = vi.fn(async () => ({
-    ok: true,
-    payload: {
-      result: { ok: true },
-    },
-  }));
+  const invoke = vi.fn(
+    async (): Promise<{
+      ok: boolean;
+      payload?: { result: { ok: boolean } };
+      error?: { code?: string; message?: string; details?: unknown };
+    }> => ({
+      ok: true,
+      payload: {
+        result: { ok: true },
+      },
+    }),
+  );
   const listConnected = vi.fn(() => [
     {
       nodeId: "node-1",
@@ -96,6 +102,48 @@ describe("browser.request profile selection", () => {
       expect.objectContaining({
         params: expect.objectContaining({
           profile: "chrome",
+        }),
+      }),
+    );
+  });
+
+  it("returns nested node error details when browser proxy invoke fails", async () => {
+    const { respond, nodeRegistry } = await runBrowserRequest({
+      method: "GET",
+      path: "/",
+    });
+    nodeRegistry.invoke.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: "UNAVAILABLE",
+        message: "browser proxy timed out",
+        details: {
+          stage: "transport",
+          status: { running: true, cdpReady: false },
+        },
+      },
+    });
+
+    await browserHandlers["browser.request"]({
+      params: { method: "GET", path: "/" },
+      respond: respond as never,
+      context: { nodeRegistry } as never,
+      client: null,
+      req: { type: "req", id: "req-2", method: "browser.request" },
+      isWebchatConnect: () => false,
+    });
+
+    expect(respond).toHaveBeenLastCalledWith(
+      false,
+      undefined,
+      expect.objectContaining({
+        code: "UNAVAILABLE",
+        message: "UNAVAILABLE: browser proxy timed out",
+        details: expect.objectContaining({
+          nodeErrorDetails: {
+            stage: "transport",
+            status: { running: true, cdpReady: false },
+          },
         }),
       }),
     );

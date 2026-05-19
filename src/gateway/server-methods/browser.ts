@@ -239,6 +239,12 @@ export const browserHandlers: GatewayRequestHandlers = {
         timeoutMs,
         profile: resolveRequestedProfile({ query, body }),
       };
+      if (process.env.OPENCLAW_DEBUG_BROWSER_PROXY === "1") {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[browser-proxy] node=${nodeTarget.nodeId} method=${methodRaw} path=${path} timeoutMs=${timeoutMs ?? "default"} profile=${proxyParams.profile ?? "default"}`,
+        );
+      }
       const res = await context.nodeRegistry.invoke({
         nodeId: nodeTarget.nodeId,
         command: "browser.proxy",
@@ -246,6 +252,17 @@ export const browserHandlers: GatewayRequestHandlers = {
         timeoutMs,
         idempotencyKey: crypto.randomUUID(),
       });
+      if (process.env.OPENCLAW_DEBUG_BROWSER_PROXY === "1") {
+        const summary =
+          res && typeof res === "object"
+            ? JSON.stringify({
+                ok: (res as { ok?: unknown }).ok,
+                error: (res as { error?: unknown }).error ?? null,
+              })
+            : String(res);
+        // eslint-disable-next-line no-console
+        console.error(`[browser-proxy] invokeResult=${summary}`);
+      }
       if (!respondUnavailableOnNodeInvokeError(respond, res)) {
         return;
       }

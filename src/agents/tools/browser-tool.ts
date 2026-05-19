@@ -33,7 +33,7 @@ import {
 } from "./browser-tool.actions.js";
 import { BrowserToolSchema } from "./browser-tool.schema.js";
 import { type AnyAgentTool, imageResultFromFile, jsonResult, readStringParam } from "./common.js";
-import { callGatewayTool } from "./gateway.js";
+import { callGatewayTool, readGatewayCallOptions } from "./gateway.js";
 import {
   listNodes,
   resolveNodeIdFromList,
@@ -207,6 +207,8 @@ async function callBrowserProxy(params: {
   body?: unknown;
   timeoutMs?: number;
   profile?: string;
+  gatewayUrl?: string;
+  gatewayToken?: string;
 }): Promise<BrowserProxyResult> {
   const proxyTimeoutMs =
     typeof params.timeoutMs === "number" && Number.isFinite(params.timeoutMs)
@@ -215,7 +217,11 @@ async function callBrowserProxy(params: {
   const gatewayTimeoutMs = proxyTimeoutMs + BROWSER_PROXY_GATEWAY_TIMEOUT_SLACK_MS;
   const payload = await callGatewayTool<{ payloadJSON?: string; payload?: string }>(
     "node.invoke",
-    { timeoutMs: gatewayTimeoutMs },
+    {
+      gatewayUrl: params.gatewayUrl,
+      gatewayToken: params.gatewayToken,
+      timeoutMs: gatewayTimeoutMs,
+    },
     {
       nodeId: params.nodeId,
       command: "browser.proxy",
@@ -321,6 +327,7 @@ export function createBrowserTool(opts?: {
       const action = readStringParam(params, "action", { required: true });
       const profile = readStringParam(params, "profile");
       const requestedNode = readStringParam(params, "node");
+      const gatewayOpts = readGatewayCallOptions(params);
       let target = readStringParam(params, "target") as "sandbox" | "host" | "node" | undefined;
 
       if (requestedNode && target && target !== "node") {
@@ -374,6 +381,8 @@ export function createBrowserTool(opts?: {
               body: opts.body,
               timeoutMs: opts.timeoutMs,
               profile: opts.profile,
+              gatewayUrl: gatewayOpts.gatewayUrl,
+              gatewayToken: gatewayOpts.gatewayToken,
             });
             const mapping = await persistProxyFiles(proxy.files);
             applyProxyPaths(proxy.result, mapping);

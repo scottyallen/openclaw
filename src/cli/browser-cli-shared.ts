@@ -32,6 +32,7 @@ export async function callBrowserRequest<T>(
   params: BrowserRequestParams,
   extra?: { timeoutMs?: number; progress?: boolean },
 ): Promise<T> {
+  const debugBrowserCli = process.env.OPENCLAW_DEBUG_BROWSER_CLI === "1";
   const resolvedTimeoutMs =
     typeof extra?.timeoutMs === "number" && Number.isFinite(extra.timeoutMs)
       ? Math.max(1, Math.floor(extra.timeoutMs))
@@ -43,18 +44,45 @@ export async function callBrowserRequest<T>(
       ? resolvedTimeoutMs
       : undefined;
   const timeout = typeof resolvedTimeout === "number" ? String(resolvedTimeout) : opts.timeout;
+  const requestPayload = {
+    method: params.method,
+    path: params.path,
+    query: normalizeQuery(params.query),
+    body: params.body,
+    timeoutMs: resolvedTimeout,
+  };
+  if (debugBrowserCli) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[browser-cli] request method=${params.method} path=${params.path} timeout=${resolvedTimeout ?? "<default>"}`,
+    );
+  }
   const payload = await callGatewayFromCli(
     "browser.request",
     { ...opts, timeout },
-    {
-      method: params.method,
-      path: params.path,
-      query: normalizeQuery(params.query),
-      body: params.body,
-      timeoutMs: resolvedTimeout,
-    },
+    requestPayload,
     { progress: extra?.progress },
-  );
+  ).catch((error) => {
+    if (debugBrowserCli) {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      const details =
+        error && typeof error === "object" && "details" in error
+          ? (error as { details?: unknown }).details
+          : undefined;
+      // eslint-disable-next-line no-console
+      console.error(`[browser-cli] failure path=${params.path} message=${message}`);
+      if (details !== undefined) {
+        // eslint-disable-next-line no-console
+        console.error(`[browser-cli] details=${JSON.stringify(details)}`);
+      }
+      if (stack) {
+        // eslint-disable-next-line no-console
+        console.error(stack);
+      }
+    }
+    throw error;
+  });
   if (payload === undefined) {
     throw new Error("Unexpected browser.request response");
   }

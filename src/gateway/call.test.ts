@@ -16,6 +16,7 @@ let lastClientOptions: {
   scopes?: string[];
   deviceIdentity?: unknown;
   onHelloOk?: (hello: { features?: { methods?: string[] } }) => void | Promise<void>;
+  onConnectError?: (err: Error) => void;
   onClose?: (code: number, reason: string) => void;
 } | null = null;
 let lastRequestOptions: {
@@ -46,6 +47,7 @@ vi.mock("./client.js", () => ({
       password?: string;
       scopes?: string[];
       onHelloOk?: (hello: { features?: { methods?: string[] } }) => void | Promise<void>;
+      onConnectError?: (err: Error) => void;
       onClose?: (code: number, reason: string) => void;
     }) {
       lastClientOptions = opts;
@@ -311,6 +313,23 @@ describe("callGateway url resolution", () => {
     });
 
     expect(lastClientOptions?.tlsFingerprint).toBeUndefined();
+  });
+
+  it("surfaces GatewayClient onConnectError instead of generic gateway close", async () => {
+    setLocalLoopbackGatewayConfig();
+    startMode = "silent";
+
+    const trigger = setTimeout(() => {
+      lastClientOptions?.onConnectError?.(new Error("gateway connect challenge timeout"));
+    }, 0);
+    trigger.unref?.();
+
+    await expect(
+      callGateway({
+        method: "health",
+        timeoutMs: 1_000,
+      }),
+    ).rejects.toThrow("gateway connect challenge timeout");
   });
 
   it.each([
